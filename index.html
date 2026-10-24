@@ -7,10 +7,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#e8eeea;--card:#f7faf8;--ink:#10302a;--mute:#5b7068;--line:#c5d2cb;--acc:#4a3a9c;--accfg:#fff;--danger:#a3321f}
-@media(prefers-color-scheme:dark){:root{--bg:#0f1b18;--card:#172622;--ink:#e3eee9;--mute:#8fa59c;--line:#2b3f39;--acc:#9d8cff;--accfg:#0f1b18;--danger:#ff8a73}}
+:root{color-scheme:light;--bg:#f1f6ef;--card:#fcfefb;--ink:#1d4a3c;--mute:#5f7a6d;--line:#cbdacf;--acc:#2f8a68;--accfg:#fff;--gold:#b8902c;--guil:rgba(47,138,104,.07);--danger:#b23a26}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 "Bricolage Grotesque",system-ui,sans-serif}
+body{margin:0;background:var(--bg) repeating-radial-gradient(circle at 15% -10%,transparent 0 11px,var(--guil) 11px 12px) fixed;color:var(--ink);font:16px/1.45 "Bricolage Grotesque",system-ui,sans-serif}
 button,input,select{font:inherit;color:inherit}
 button{cursor:pointer;border:1px solid var(--line);background:var(--card);border-radius:8px;padding:.5rem .9rem}
 button.pri{background:var(--acc);color:var(--accfg);border-color:var(--acc);font-weight:600}
@@ -36,7 +35,7 @@ h1 small{display:block;font-size:.9rem;font-weight:400;color:var(--mute);letter-
 .note div div{color:var(--mute);font-size:.9rem}
 .empty{grid-column:1/-1;text-align:center;color:var(--mute);padding:4rem 1rem}
 dialog{border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);width:min(640px,94vw);max-height:92vh;padding:1.25rem}
-dialog::backdrop{background:rgba(0,0,0,.5)}
+dialog::backdrop{background:rgba(29,74,60,.45)}
 dialog h2{margin:0 0 .75rem}
 .row{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
 label{display:block;font-size:.88rem;color:var(--mute);margin-bottom:.6rem}
@@ -55,31 +54,55 @@ dl{display:grid;grid-template-columns:auto 1fr;gap:.2rem 1rem;margin:.8rem 0}dt{
 .refs img{height:70px;border:2px solid transparent;border-radius:6px;cursor:pointer;flex:none}
 .refs img.on{border-color:var(--acc)}
 dialog p.help{color:var(--mute);font-size:.9rem;margin-top:0}
+[hidden]{display:none!important}
+.stats{display:flex;gap:1.2rem;margin:.3rem 0 0;color:var(--mute);font-size:.95rem}
+.stats b{color:var(--gold);font-size:1.2rem;margin-right:.25rem}
+.tabs{display:flex;gap:.4rem;padding:.5rem clamp(1rem,4vw,2.5rem)}
+.tabs button{border-radius:99px;padding:.35rem 1.1rem}
+.tabs button[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.list,.sub{max-width:760px;padding:0 clamp(1rem,4vw,2.5rem)}
+.list{display:flex;flex-direction:column;gap:.5rem;padding-bottom:3rem}
+.sub{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}.sub h2{margin:0 auto 0 .3rem;font-size:1.3rem}.sub:not(:empty){padding-bottom:.6rem}
+.item{box-shadow:inset 0 0 0 3px var(--card),inset 0 0 0 4px var(--line);display:flex;align-items:center;gap:.9rem;width:100%;text-align:left;padding:.5rem .9rem .5rem .5rem;border-radius:10px}
+.thumb{width:92px;height:56px;object-fit:contain;border-radius:6px;background:var(--bg);flex:none}
+.info{flex:1;min-width:0}.info b{display:block;font-size:1.1rem}
+.info .c{display:flex;align-items:center;gap:.4rem;color:var(--mute);font-size:.9rem}
+.yr{font-weight:600;color:var(--mute)}
+.flag{width:20px;height:auto;border-radius:2px;flex:none}
+.ficon{width:34px;height:26px;border-radius:3px 9px 4px 4px;background:var(--acc);flex:none;margin:0 .4rem}
+.fcount{color:var(--mute)}
+.fhead{display:flex;justify-content:space-between;align-items:center;padding:0 clamp(1rem,4vw,2.5rem) .75rem;max-width:760px}.fhead h2{margin:0}
+.dd{position:relative}.dd>button{display:flex;align-items:center;gap:.5rem;padding:.5rem .8rem}
+.dd ul{position:absolute;z-index:5;left:0;top:calc(100% + 4px);min-width:270px;max-height:320px;overflow:auto;margin:0;padding:.3rem;list-style:none;background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(29,74,60,.18)}
+.dd li{display:flex;align-items:center;gap:.55rem;padding:.45rem .6rem;border-radius:6px;cursor:pointer}
+.dd li:hover,.dd li[aria-selected=true]{background:var(--bg)}.dd li small{margin-left:auto;color:var(--mute)}
+.fab{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(1.25rem + env(safe-area-inset-bottom,0px));width:68px;height:68px;border-radius:50%;padding:0;display:flex;align-items:center;justify-content:center;background:var(--acc);color:var(--accfg);border:0;box-shadow:0 0 0 3px var(--bg),0 0 0 5px var(--gold),0 8px 20px rgba(29,74,60,.25);z-index:10}
+.fab:active{transform:translateX(-50%) scale(.94)}
+.list{padding-bottom:7rem}
 </style>
 </head>
 <body>
 <header>
-  <h1>Banknote Collection<small id="count"></small></h1>
-  <div class="bar">
-    <button id="settingsBtn">Settings</button>
-    <button id="newFolder">New folder</button>
-    <button class="pri" id="addNote">Add banknote</button>
-  </div>
+  <div><h1>Collection</h1><p class="stats" id="stats"></p></div>
+  <div class="bar"><button id="settingsBtn">Settings</button></div>
 </header>
-<div class="tools">
+<nav class="tabs" aria-label="Sections"><button id="tabC">Collection</button><button id="tabF">Folders</button></nav>
+<div class="fhead" id="fhead" hidden><h2>Folders</h2><button id="newFolder">New folder</button></div>
+<div class="tools" id="tools">
   <input type="search" id="q" placeholder="Search country, currency, year…" aria-label="Search">
+  <div class="dd" id="dd"><button type="button" id="ddBtn" aria-haspopup="listbox" aria-expanded="false"></button><ul id="ddList" role="listbox" aria-label="Country or territory" hidden></ul></div>
   <select id="sort" aria-label="Sort">
     <option value="added">Newest added</option>
     <option value="country">Country A–Z</option>
     <option value="year">Year</option>
     <option value="value">Value</option>
   </select>
-  <button id="export">Back up</button>
-  <button id="importBtn">Restore</button>
-  <input type="file" id="importFile" accept="application/json" hidden>
 </div>
-<nav class="folders" id="folders" aria-label="Folders"></nav>
-<main class="grid" id="grid"></main>
+<div class="sub" id="sub"></div>
+<main class="list" id="list"></main>
+<button class="fab" id="addNote" aria-label="Add banknote" title="Add banknote">
+  <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2.2l1.1-1.7A1.5 1.5 0 0 1 10.1 4.5h3.8a1.5 1.5 0 0 1 1.3.8L16.3 7h2.2A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5z"/><circle cx="12" cy="13" r="3.6"/></svg>
+</button>
 
 <dialog id="editor">
   <form method="dialog" id="form" autocomplete="off">
@@ -97,7 +120,7 @@ dialog p.help{color:var(--mute);font-size:.9rem;margin-top:0}
       <button type="button" id="findRef" style="margin-top:.4rem">Find reference online</button>
     </label>
     <div class="row">
-      <label>Country / territory<input id="country" required></label>
+      <label>Country / territory<input id="country" list="countries" required><datalist id="countries"></datalist></label>
       <label>Currency<input id="currency" required placeholder="e.g. Euro"></label>
       <label>Value<input id="value" required inputmode="decimal" placeholder="e.g. 20"></label>
       <label>Year<input id="year" inputmode="numeric" maxlength="4" placeholder="e.g. 2015"></label>
@@ -116,6 +139,8 @@ dialog p.help{color:var(--mute);font-size:.9rem;margin-top:0}
     <p class="help">Auto-fill uses Google's free Gemini API. Get a free key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> and paste it here. It is saved only in this browser. On Google's free tier, the photos you scan may be used to improve Google's products.</p>
     <label>Gemini API key<input id="apiKey" type="password" autocomplete="off"></label>
     <label>Model<input id="model" placeholder="gemini-flash-latest"></label>
+    <label>Your collection file</label>
+    <div class="acts" style="justify-content:flex-start;margin:0 0 1rem"><button type="button" id="export">Back up</button><button type="button" id="importBtn">Restore</button><input type="file" id="importFile" accept="application/json" hidden></div>
     <div class="acts"><button type="button" id="sCancel">Cancel</button><button class="pri" type="submit">Save</button></div>
   </form>
 </dialog>
@@ -137,7 +162,7 @@ const del = (s, id) => tx(s, "readwrite", st => st.delete(id));
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
 // ---------- State ----------
-let notes = [], folders = [], current = "all", editing = null, imgs = {};
+let notes = [], folders = [], current = null, view = "collection", country = "", scanIso = "", editing = null, imgs = {};
 const $ = id => document.getElementById(id);
 
 // Shrink photos so a big collection stays small (max 1200px, JPEG)
@@ -152,47 +177,83 @@ const shrink = file => new Promise(res => {
   img.src = url;
 });
 
+// ---------- Countries and flags ----------
+const NAMES = [], REG = (() => { const dn = new Intl.DisplayNames("en", {type: "region"}), m = {};
+  for (let a = 65; a < 91; a++) for (let b = 65; b < 91; b++) { const c = String.fromCharCode(a, b);
+    try { const n = dn.of(c); if (n && n !== c) { m[n.toLowerCase()] = c; NAMES.push(n); } } catch {} }
+  Object.assign(m, {"usa": "US", "united states of america": "US", "uk": "GB", "great britain": "GB", "england": "GB", "scotland": "GB", "russia": "RU", "south korea": "KR", "north korea": "KP",
+    "czech republic": "CZ", "ivory coast": "CI", "burma": "MM", "macau": "MO", "macao": "MO", "hong kong": "HK", "vietnam": "VN", "turkey": "TR", "swaziland": "SZ", "east timor": "TL", "palestine": "PS"});
+  return m; })();
+$("countries").innerHTML = NAMES.sort().map(n => `<option value="${n}">`).join("");
+const isoOf = n => /^[A-Za-z]{2}$/.test(n.iso || "") ? n.iso.toUpperCase() : REG[(n.country || "").toLowerCase().replace(/\s+sar china$/, "").trim()] || "";
+const countryKey = n => isoOf(n) || (n.country || "").toLowerCase();
+const el = (t, txt, cls) => { const e = document.createElement(t); if (txt != null) e.textContent = txt; if (cls) e.className = cls; return e; };
+const flagEl = iso => { if (!iso) return el("span"); const i = el("img", null, "flag"); i.alt = ""; i.loading = "lazy";
+  i.src = `https://flagcdn.com/w40/${iso.toLowerCase()}.png`; i.onerror = () => i.remove(); return i; };
+
 // ---------- Render ----------
+function row(n) {
+  const b = el("button", null, "item"), img = el("img", null, "thumb"); img.alt = "";
+  img.src = n.ref || n.front; img.onerror = () => { img.onerror = null; img.src = n.front; };
+  const info = el("div", null, "info"), c = el("span", null, "c"); c.append(flagEl(isoOf(n)), n.country);
+  info.append(el("b", `${n.value} ${n.currency}`), c);
+  b.append(img, info, el("span", n.year || "", "yr")); b.onclick = () => showNote(n); return b;
+}
+function fillDropdown(by, total) {
+  const btn = $("ddBtn"), ul = $("ddList"); ul.innerHTML = ""; btn.innerHTML = "";
+  const add = (key, name, iso, c) => { const li = el("li"); li.setAttribute("role", "option"); li.setAttribute("aria-selected", key === country);
+    li.append(flagEl(iso), el("span", name), el("small", c));
+    li.onclick = () => { country = key; ul.hidden = true; btn.setAttribute("aria-expanded", false); render(); };
+    ul.append(li); if (key === country) btn.append(flagEl(iso), el("span", name)); };
+  add("", "All countries/territories", "", total);
+  Object.entries(by).sort((a, b) => a[1].n.localeCompare(b[1].n)).forEach(([k, v]) => add(k, v.n, v.iso, v.c));
+}
 function render() {
-  $("count").textContent = notes.length + (notes.length === 1 ? " banknote" : " banknotes");
-  const cnt = id => notes.filter(n => n.folder === id).length;
-  const chips = [["all", "All", notes.length], ["none", "Unsorted", notes.filter(n => !n.folder).length],
-    ...folders.sort((a, b) => a.name.localeCompare(b.name)).map(f => [f.id, f.name, cnt(f.id)])];
-  $("folders").innerHTML = "";
-  chips.forEach(([id, name, n]) => {
-    const b = document.createElement("button");
-    b.className = "chip"; b.setAttribute("aria-pressed", id === current);
-    b.append(name); const sp = document.createElement("span"); sp.textContent = n; b.append(sp);
-    b.onclick = () => { current = id; render(); }; $("folders").append(b);
-  });
-  if (!["all", "none"].includes(current)) {
-    const f = folders.find(f => f.id === current);
-    if (!f) { current = "all"; return render(); }
-    const r = document.createElement("button"); r.textContent = "Rename"; r.onclick = async () => {
-      const name = prompt("Folder name", f.name); if (name?.trim()) { f.name = name.trim(); await put("folders", f); render(); } };
-    const d = document.createElement("button"); d.textContent = "Delete folder"; d.className = "del"; d.onclick = async () => {
-      if (!confirm(`Delete folder "${f.name}"? Its banknotes will move to Unsorted.`)) return;
-      for (const n of notes.filter(n => n.folder === f.id)) { n.folder = null; await put("notes", n); }
-      await del("folders", f.id); folders = folders.filter(x => x.id !== f.id); current = "all"; render(); };
-    $("folders").append(r, d);
+  const fv = view === "folders", inF = view === "folder", keys = new Set(notes.map(countryKey)), k = keys.size;
+  $("tabC").setAttribute("aria-pressed", view === "collection"); $("tabF").setAttribute("aria-pressed", fv || inF);
+  $("stats").innerHTML = `<span><b>${notes.length}</b>${notes.length === 1 ? "banknote" : "banknotes"}</span><span><b>${k}</b>${k === 1 ? "country/territory" : "countries/territories"}</span>`;
+  $("tools").hidden = fv; $("fhead").hidden = !fv;
+  const sub = $("sub"), list = $("list"); sub.innerHTML = ""; list.innerHTML = "";
+  if (fv) {
+    const r = (id, name, n) => { const b = el("button", null, "item"); b.append(el("span", null, "ficon"), Object.assign(el("div", null, "info"), {innerHTML: ""}), el("span", n + (n === 1 ? " banknote" : " banknotes"), "fcount"));
+      b.querySelector(".info").append(el("b", name)); b.onclick = () => { view = "folder"; current = id; country = ""; render(); }; list.append(b); };
+    folders.sort((a, b) => a.name.localeCompare(b.name)).forEach(f => r(f.id, f.name, notes.filter(n => n.folder === f.id).length));
+    r("none", "Unsorted", notes.filter(n => !n.folder).length);
+    if (!folders.length) list.append(el("p", "No folders yet. Create one to group your banknotes into sets.", "empty"));
+    return;
   }
+  let pool = notes;
+  if (inF) {
+    const f = folders.find(x => x.id === current);
+    if (current !== "none" && !f) { view = "folders"; return render(); }
+    pool = notes.filter(n => current === "none" ? !n.folder : n.folder === current);
+    const back = el("button", "‹ Folders"); back.onclick = () => { view = "folders"; country = ""; render(); };
+    sub.append(back, el("h2", f ? f.name : "Unsorted"));
+    if (f) {
+      const rn = el("button", "Rename"); rn.onclick = async () => { const name = prompt("Folder name", f.name); if (name?.trim()) { f.name = name.trim(); await put("folders", f); render(); } };
+      const dl = el("button", "Delete folder", "del"); dl.onclick = async () => {
+        if (!confirm(`Delete folder "${f.name}"? Its banknotes will move to Unsorted.`)) return;
+        for (const n of notes.filter(n => n.folder === f.id)) { n.folder = null; await put("notes", n); }
+        await del("folders", f.id); folders = folders.filter(x => x.id !== f.id); view = "folders"; render(); };
+      sub.append(rn, dl);
+    }
+  }
+  const by = {}; pool.forEach(n => { const key = countryKey(n); (by[key] = by[key] || {n: n.country, iso: isoOf(n), c: 0}).c++; });
+  if (country && !by[country]) country = "";
+  fillDropdown(by, pool.length);
   const q = $("q").value.toLowerCase().trim();
-  let list = notes.filter(n => current === "all" || (current === "none" ? !n.folder : n.folder === current))
+  let items = pool.filter(n => !country || countryKey(n) === country)
     .filter(n => !q || [n.country, n.currency, n.value, n.year].join(" ").toLowerCase().includes(q));
   const s = $("sort").value;
-  list.sort((a, b) => s === "country" ? a.country.localeCompare(b.country) : s === "year" ? (+b.year || 0) - (+a.year || 0)
+  items.sort((a, b) => s === "country" ? a.country.localeCompare(b.country) : s === "year" ? (+b.year || 0) - (+a.year || 0)
     : s === "value" ? (parseFloat(b.value) || 0) - (parseFloat(a.value) || 0) : b.added - a.added);
-  const g = $("grid"); g.innerHTML = "";
-  if (!list.length) g.innerHTML = `<p class="empty">${notes.length ? "No banknotes match." : "Your collection is empty. Add your first banknote."}</p>`;
-  list.forEach(n => {
-    const b = document.createElement("button"); b.className = "note";
-    b.innerHTML = `<div class="imgs"><img alt="Front"><img alt="Back"></div><div class="meta"><b></b><div></div></div>`;
-    const [i1, i2] = b.querySelectorAll("img"); i1.src = n.front; i2.src = n.back;
-    b.querySelector("b").textContent = `${n.value} ${n.currency}`;
-    b.querySelector(".meta div").textContent = [n.country, n.year].filter(Boolean).join(", ");
-    b.onclick = () => showNote(n); g.append(b);
-  });
+  if (!items.length) list.append(el("p", notes.length ? "No banknotes match." : "Your collection is empty. Add your first banknote.", "empty"));
+  items.forEach(n => list.append(row(n)));
 }
+$("ddBtn").onclick = e => { const u = $("ddList"); u.hidden = !u.hidden; e.currentTarget.setAttribute("aria-expanded", !u.hidden); };
+document.addEventListener("click", e => { if (!e.target.closest("#dd")) $("ddList").hidden = true; });
+$("tabC").onclick = () => { view = "collection"; country = ""; render(); };
+$("tabF").onclick = () => { view = "folders"; country = ""; render(); };
 
 function showNote(n) {
   const v = $("viewBody"), f = folders.find(f => f.id === n.folder);
@@ -226,8 +287,8 @@ function openEditor(n) {
   $("refUrl").value = n?.ref && !n.ref.startsWith("data:") ? n.ref : "";
   ["country", "currency", "value", "year"].forEach(k => $(k).value = n?.[k] || "");
   $("folder").innerHTML = `<option value="">Unsorted</option>` + folders.map(f => `<option value="${f.id}">${f.name.replace(/</g, "&lt;")}</option>`).join("");
-  $("folder").value = n?.folder || (["all", "none"].includes(current) ? "" : current);
-  $("refs").innerHTML = ""; $("status").textContent = "";
+  $("folder").value = n?.folder || (view === "folder" && current !== "none" ? current : "");
+  $("refs").innerHTML = ""; $("status").textContent = ""; scanIso = "";
   $("editor").showModal();
 }
 [["pickFront", "front", "Tap to take or choose a photo"], ["pickBack", "back", "Tap to take or choose a photo"], ["pickRef", "ref", "Choose an image of the official note"]]
@@ -237,14 +298,15 @@ $("form").onsubmit = async e => {
   if (!imgs.front || !imgs.back) { e.preventDefault(); alert("Add a photo of both the front and the back."); return; }
   const n = {id: editing?.id || uid(), added: editing?.added || Date.now(), front: imgs.front, back: imgs.back,
     ref: imgs.ref || $("refUrl").value.trim() || null, country: $("country").value.trim(), currency: $("currency").value.trim(),
-    value: $("value").value.trim(), year: $("year").value.trim(), folder: $("folder").value || null};
+    value: $("value").value.trim(), year: $("year").value.trim(), folder: $("folder").value || null,
+    iso: scanIso || (editing && editing.country === $("country").value.trim() ? editing.iso : "") || ""};
   await put("notes", n); notes = [n, ...notes.filter(x => x.id !== n.id)]; render();
 };
 $("cancel").onclick = () => $("editor").close();
 
 // ---------- Folders, backup ----------
 $("newFolder").onclick = async () => { const name = prompt("Folder name"); if (!name?.trim()) return;
-  const f = {id: uid(), name: name.trim()}; await put("folders", f); folders.push(f); current = f.id; render(); };
+  const f = {id: uid(), name: name.trim()}; await put("folders", f); folders.push(f); render(); };
 $("addNote").onclick = () => openEditor(null);
 $("q").oninput = render; $("sort").onchange = render;
 $("export").onclick = () => {
@@ -274,7 +336,7 @@ $("scan").onclick = async () => {
   if (!imgs.front) { st.textContent = "Add the front photo first."; return; }
   st.textContent = "Reading the banknote…"; $("scan").disabled = true;
   const part = d => ({inline_data: {mime_type: "image/jpeg", data: d.split(",")[1]}});
-  const prompt = `These are photos of one banknote (front${imgs.back ? " and back" : ""}). Identify it. Reply with JSON only: {"country": issuing country or territory in English, "currency": currency name in English (e.g. "Euro", "Hong Kong dollar"), "value": face value as a number string, "year": the issue or series year as a 4-digit string (empty if not visible)}. Use empty strings for anything you can't determine.`;
+  const prompt = `These are photos of one banknote (front${imgs.back ? " and back" : ""}). Identify it. Reply with JSON only: {"country": issuing country or territory in English, "iso": its ISO 3166-1 alpha-2 code (e.g. "DE", "HK"), "currency": currency name in English (e.g. "Euro", "Hong Kong dollar"), "value": face value as a number string, "year": the issue or series year as a 4-digit string (empty if not visible)}. Use empty strings for anything you can't determine.`;
   try {
     const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`, {
       method: "POST", headers: {"Content-Type": "application/json"},
@@ -283,7 +345,7 @@ $("scan").onclick = async () => {
     const j = await r.json();
     if (!r.ok) throw new Error(j.error?.message || r.status);
     const d = JSON.parse(j.candidates[0].content.parts.map(p => p.text || "").join("").replace(/```json|```/g, ""));
-    ["country", "currency", "value", "year"].forEach(k => { if (d[k]) $(k).value = d[k]; });
+    ["country", "currency", "value", "year"].forEach(k => { if (d[k]) $(k).value = d[k]; }); scanIso = (d.iso || "").toUpperCase();
     st.textContent = "Filled in. Please check the details before saving.";
     findRef();
   } catch (e) { st.textContent = "Couldn't read it: " + e.message; }
@@ -291,18 +353,24 @@ $("scan").onclick = async () => {
 };
 
 async function findRef() {
-  const q = [$("country").value, $("value").value, $("currency").value, "banknote"].join(" ").trim();
-  if (q === "banknote") { $("status").textContent = "Fill in country, value and currency first."; return; }
+  const base = [$("country").value, $("value").value, $("currency").value, "banknote"].join(" ").trim();
+  if (base === "banknote") { $("status").textContent = "Fill in country, value and currency first."; return; }
   $("refs").innerHTML = "";
+  const api = q => fetch("https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrnamespace=6&gsrlimit=10&prop=imageinfo&iiprop=url&iiurlwidth=600&gsrsearch=" + encodeURIComponent(q))
+    .then(r => r.json()).then(j => Object.values(j.query?.pages || {})).catch(() => []);
   try {
-    const u = "https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrnamespace=6&gsrlimit=8&prop=imageinfo&iiprop=url&iiurlwidth=600&gsrsearch=" + encodeURIComponent(q);
-    const pages = Object.values((await (await fetch(u)).json()).query?.pages || {});
+    const [a, b] = await Promise.all([api(base + " obverse"), api(base)]), seen = new Set(), pages = [];
+    [...a, ...b].forEach(p => { if (!seen.has(p.pageid) && p.imageinfo?.[0]?.thumburl) { seen.add(p.pageid); pages.push(p); } });
+    const v = $("value").value.toLowerCase();
+    const score = p => { const t = p.title.toLowerCase();
+      return (/obverse|front|recto|avers|anverso|vorder/.test(t) ? 3 : 0) - (/reverse|back|verso|rear|revers|rück|ruck/.test(t) ? 4 : 0) + (v && t.includes(v) ? 1 : 0) + (/\.(jpe?g|png|webp)$/.test(t) ? 1 : -5); };
+    pages.sort((x, y) => score(y) - score(x));
     if (!pages.length) { $("status").textContent += " No reference found online; upload one instead."; return; }
-    pages.forEach(p => { const t = p.imageinfo?.[0]?.thumburl; if (!t) return;
-      const im = Object.assign(new Image(), {src: t, alt: p.title}); im.onclick = () => {
-        $("refUrl").value = t; imgs.ref = null; setPick("pickRef", t, ""); $("refs").querySelectorAll("img").forEach(x => x.classList.toggle("on", x === im)); };
-      $("refs").append(im); });
-    $("status").textContent += " Tap a reference image below if one matches.";
+    const ims = pages.map(p => { const t = p.imageinfo[0].thumburl, im = Object.assign(new Image(), {src: t, alt: p.title});
+      im.onclick = () => choose(t, im); $("refs").append(im); return [t, im]; });
+    const choose = (t, im) => { $("refUrl").value = t; imgs.ref = null; setPick("pickRef", t, ""); $("refs").querySelectorAll("img").forEach(x => x.classList.toggle("on", x === im)); };
+    choose(...ims[0]);
+    $("status").textContent += " Front reference picked. Tap another image to change it.";
   } catch { $("status").textContent += " Reference search failed."; }
 }
 $("findRef").onclick = findRef;
