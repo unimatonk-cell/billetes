@@ -57,8 +57,8 @@ dialog p.help{color:var(--mute);font-size:.9rem;margin-top:0}
 [hidden]{display:none!important}
 .stats{display:flex;gap:1.2rem;margin:.3rem 0 0;color:var(--mute);font-size:.95rem}
 .stats b{color:var(--gold);font-size:1.2rem;margin-right:.25rem}
-.tabs{display:flex;gap:.4rem;padding:.5rem clamp(1rem,4vw,2.5rem)}
-.tabs button{border-radius:99px;padding:.35rem 1.1rem}
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:9;display:flex;justify-content:space-between;align-items:center;padding:.75rem clamp(1rem,5vw,2rem) calc(.75rem + env(safe-area-inset-bottom,0px));background:var(--card);border-top:1px solid var(--line)}
+.tabs button{border-radius:99px;padding:.5rem 1.2rem;font-weight:600}
 .tabs button[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .list,.sub{max-width:760px;padding:0 clamp(1rem,4vw,2.5rem)}
 .list{display:flex;flex-direction:column;gap:.5rem;padding-bottom:3rem}
@@ -68,7 +68,7 @@ dialog p.help{color:var(--mute);font-size:.9rem;margin-top:0}
 .info{flex:1;min-width:0}.info b{display:block;font-size:1.1rem}
 .info .c{display:flex;align-items:center;gap:.4rem;color:var(--mute);font-size:.9rem}
 .yr{font-weight:600;color:var(--mute)}
-.flag{width:20px;height:auto;border-radius:2px;flex:none}
+.flag{width:24px;height:18px;object-fit:cover;border-radius:2px;flex:none;display:inline-block;text-align:center;line-height:18px}
 .ficon{width:34px;height:26px;border-radius:3px 9px 4px 4px;background:var(--acc);flex:none;margin:0 .4rem}
 .fcount{color:var(--mute)}
 .fhead{display:flex;justify-content:space-between;align-items:center;padding:0 clamp(1rem,4vw,2.5rem) .75rem;max-width:760px}.fhead h2{margin:0}
@@ -76,9 +76,9 @@ dialog p.help{color:var(--mute);font-size:.9rem;margin-top:0}
 .dd ul{position:absolute;z-index:5;left:0;top:calc(100% + 4px);min-width:270px;max-height:320px;overflow:auto;margin:0;padding:.3rem;list-style:none;background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(29,74,60,.18)}
 .dd li{display:flex;align-items:center;gap:.55rem;padding:.45rem .6rem;border-radius:6px;cursor:pointer}
 .dd li:hover,.dd li[aria-selected=true]{background:var(--bg)}.dd li small{margin-left:auto;color:var(--mute)}
-.fab{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(1.25rem + env(safe-area-inset-bottom,0px));width:68px;height:68px;border-radius:50%;padding:0;display:flex;align-items:center;justify-content:center;background:var(--acc);color:var(--accfg);border:0;box-shadow:0 0 0 3px var(--bg),0 0 0 5px var(--gold),0 8px 20px rgba(29,74,60,.25);z-index:10}
+.fab{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(1.1rem + env(safe-area-inset-bottom,0px));width:68px;height:68px;border-radius:50%;padding:0;display:flex;align-items:center;justify-content:center;background:var(--acc);color:var(--accfg);border:0;box-shadow:0 0 0 3px var(--bg),0 0 0 5px var(--gold),0 8px 20px rgba(29,74,60,.25);z-index:10}
 .fab:active{transform:translateX(-50%) scale(.94)}
-.list{padding-bottom:7rem}
+.list{padding-bottom:9rem}
 </style>
 </head>
 <body>
@@ -91,12 +91,6 @@ dialog p.help{color:var(--mute);font-size:.9rem;margin-top:0}
 <div class="tools" id="tools">
   <input type="search" id="q" placeholder="Search country, currency, year…" aria-label="Search">
   <div class="dd" id="dd"><button type="button" id="ddBtn" aria-haspopup="listbox" aria-expanded="false"></button><ul id="ddList" role="listbox" aria-label="Country or territory" hidden></ul></div>
-  <select id="sort" aria-label="Sort">
-    <option value="added">Newest added</option>
-    <option value="country">Country A–Z</option>
-    <option value="year">Year</option>
-    <option value="value">Value</option>
-  </select>
 </div>
 <div class="sub" id="sub"></div>
 <main class="list" id="list"></main>
@@ -188,8 +182,9 @@ $("countries").innerHTML = NAMES.sort().map(n => `<option value="${n}">`).join("
 const isoOf = n => /^[A-Za-z]{2}$/.test(n.iso || "") ? n.iso.toUpperCase() : REG[(n.country || "").toLowerCase().replace(/\s+sar china$/, "").trim()] || "";
 const countryKey = n => isoOf(n) || (n.country || "").toLowerCase();
 const el = (t, txt, cls) => { const e = document.createElement(t); if (txt != null) e.textContent = txt; if (cls) e.className = cls; return e; };
-const flagEl = iso => { if (!iso) return el("span"); const i = el("img", null, "flag"); i.alt = ""; i.loading = "lazy";
-  i.src = `https://flagcdn.com/w40/${iso.toLowerCase()}.png`; i.onerror = () => i.remove(); return i; };
+const flagEl = iso => { if (!iso) return el("span", null, "flag"); const i = el("img", null, "flag"); i.alt = ""; i.width = 24; i.height = 18;
+  i.src = `https://flagcdn.com/w40/${iso.toLowerCase()}.png`;
+  i.onerror = () => i.replaceWith(el("span", String.fromCodePoint(...[...iso.toUpperCase()].map(c => 127397 + c.charCodeAt(0))), "flag")); return i; };
 
 // ---------- Render ----------
 function row(n) {
@@ -244,9 +239,7 @@ function render() {
   const q = $("q").value.toLowerCase().trim();
   let items = pool.filter(n => !country || countryKey(n) === country)
     .filter(n => !q || [n.country, n.currency, n.value, n.year].join(" ").toLowerCase().includes(q));
-  const s = $("sort").value;
-  items.sort((a, b) => s === "country" ? a.country.localeCompare(b.country) : s === "year" ? (+b.year || 0) - (+a.year || 0)
-    : s === "value" ? (parseFloat(b.value) || 0) - (parseFloat(a.value) || 0) : b.added - a.added);
+  items.sort((a, b) => b.added - a.added);
   if (!items.length) list.append(el("p", notes.length ? "No banknotes match." : "Your collection is empty. Add your first banknote.", "empty"));
   items.forEach(n => list.append(row(n)));
 }
@@ -308,7 +301,7 @@ $("cancel").onclick = () => $("editor").close();
 $("newFolder").onclick = async () => { const name = prompt("Folder name"); if (!name?.trim()) return;
   const f = {id: uid(), name: name.trim()}; await put("folders", f); folders.push(f); render(); };
 $("addNote").onclick = () => openEditor(null);
-$("q").oninput = render; $("sort").onchange = render;
+$("q").oninput = render;
 $("export").onclick = () => {
   const blob = new Blob([JSON.stringify({notes, folders})], {type: "application/json"});
   Object.assign(document.createElement("a"), {href: URL.createObjectURL(blob), download: "banknote-collection-backup.json"}).click();
