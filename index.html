@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Banknote Collection</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#e8eeea;--card:#f7faf8;--ink:#10302a;--mute:#5b7068;--line:#c5d2cb;--acc:#4a3a9c;--accfg:#fff;--danger:#a3321f}
+@media(prefers-color-scheme:dark){:root{--bg:#0f1b18;--card:#172622;--ink:#e3eee9;--mute:#8fa59c;--line:#2b3f39;--acc:#9d8cff;--accfg:#0f1b18;--danger:#ff8a73}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 "Bricolage Grotesque",system-ui,sans-serif}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer;border:1px solid var(--line);background:var(--card);border-radius:8px;padding:.5rem .9rem}
+button.pri{background:var(--acc);color:var(--accfg);border-color:var(--acc);font-weight:600}
+button.del{color:var(--danger)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+header{display:flex;flex-wrap:wrap;gap:.75rem;align-items:center;justify-content:space-between;padding:1.25rem clamp(1rem,4vw,2.5rem) .5rem;padding-top:calc(1.25rem + env(safe-area-inset-top,0px))}
+h1{margin:0;font-size:1.9rem;font-weight:800;letter-spacing:-.02em}
+h1 small{display:block;font-size:.9rem;font-weight:400;color:var(--mute);letter-spacing:0}
+.bar{display:flex;gap:.5rem;flex-wrap:wrap}
+.tools{display:flex;flex-wrap:wrap;gap:.5rem;padding:.5rem clamp(1rem,4vw,2.5rem)}
+.tools input[type=search]{flex:1 1 200px;border:1px solid var(--line);background:var(--card);border-radius:8px;padding:.5rem .8rem}
+.tools select{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:.5rem}
+.folders{display:flex;gap:.4rem;flex-wrap:wrap;padding:.25rem clamp(1rem,4vw,2.5rem) 1rem;align-items:center}
+.chip{border-radius:99px;padding:.3rem .85rem}
+.chip[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.chip span{opacity:.6;margin-left:.3rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:1rem;padding:0 clamp(1rem,4vw,2.5rem) 3rem}
+.note{background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden;cursor:pointer;text-align:left;padding:0;display:block;width:100%}
+.note .imgs{display:grid;grid-template-columns:1fr 1fr;gap:2px;background:var(--line)}
+.note img{width:100%;aspect-ratio:2/1;object-fit:cover;display:block;background:var(--bg)}
+.note .meta{padding:.7rem .85rem}
+.note b{font-size:1.15rem}
+.note div div{color:var(--mute);font-size:.9rem}
+.empty{grid-column:1/-1;text-align:center;color:var(--mute);padding:4rem 1rem}
+dialog{border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);width:min(640px,94vw);max-height:92vh;padding:1.25rem}
+dialog::backdrop{background:rgba(0,0,0,.5)}
+dialog h2{margin:0 0 .75rem}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+label{display:block;font-size:.88rem;color:var(--mute);margin-bottom:.6rem}
+label input,label select{display:block;width:100%;margin-top:.2rem;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:.5rem .6rem;color:var(--ink)}
+.pick{display:block;border:2px dashed var(--line);border-radius:10px;min-height:110px;margin-bottom:.6rem;position:relative;overflow:hidden;cursor:pointer;color:var(--mute);text-align:center}
+.pick span{display:block;padding:2.2rem .5rem}
+.pick img{width:100%;display:block;max-height:220px;object-fit:contain;background:var(--bg)}
+.pick input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;margin:0}
+.acts{display:flex;gap:.5rem;justify-content:flex-end;margin-top:.5rem;flex-wrap:wrap}
+.view img{width:100%;border-radius:8px;display:block;margin-bottom:.4rem;background:var(--bg)}
+.view h3{margin:.8rem 0 .2rem;font-size:.9rem;color:var(--mute);font-weight:600}
+dl{display:grid;grid-template-columns:auto 1fr;gap:.2rem 1rem;margin:.8rem 0}dt{color:var(--mute)}dd{margin:0}
+.scan{width:100%;margin-bottom:.6rem}
+.status{font-size:.88rem;color:var(--mute);margin:0 0 .6rem;min-height:1.2em}
+.refs{display:flex;gap:.4rem;overflow-x:auto;margin-bottom:.4rem}
+.refs img{height:70px;border:2px solid transparent;border-radius:6px;cursor:pointer;flex:none}
+.refs img.on{border-color:var(--acc)}
+dialog p.help{color:var(--mute);font-size:.9rem;margin-top:0}
+</style>
+</head>
+<body>
+<header>
+  <h1>Banknote Collection<small id="count"></small></h1>
+  <div class="bar">
+    <button id="settingsBtn">Settings</button>
+    <button id="newFolder">New folder</button>
+    <button class="pri" id="addNote">Add banknote</button>
+  </div>
+</header>
+<div class="tools">
+  <input type="search" id="q" placeholder="Search country, currency, year…" aria-label="Search">
+  <select id="sort" aria-label="Sort">
+    <option value="added">Newest added</option>
+    <option value="country">Country A–Z</option>
+    <option value="year">Year</option>
+    <option value="value">Value</option>
+  </select>
+  <button id="export">Back up</button>
+  <button id="importBtn">Restore</button>
+  <input type="file" id="importFile" accept="application/json" hidden>
+</div>
+<nav class="folders" id="folders" aria-label="Folders"></nav>
+<main class="grid" id="grid"></main>
+
+<dialog id="editor">
+  <form method="dialog" id="form" autocomplete="off">
+    <h2 id="editorTitle">Add banknote</h2>
+    <div class="row">
+      <div><label>Front</label><label class="pick" id="pickFront"><span>Tap to take or choose a photo</span><input type="file" accept="image/*"></label></div>
+      <div><label>Back</label><label class="pick" id="pickBack"><span>Tap to take or choose a photo</span><input type="file" accept="image/*"></label></div>
+    </div>
+    <button type="button" class="scan pri" id="scan">Auto-fill from photos</button>
+    <p class="status" id="status" role="status"></p>
+    <label>Reference image (optional)
+      <label class="pick" id="pickRef" style="margin:.3rem 0"><span>Choose an image of the official note</span><input type="file" accept="image/*"></label>
+      <input id="refUrl" type="url" placeholder="…or paste an image link">
+      <div class="refs" id="refs"></div>
+      <button type="button" id="findRef" style="margin-top:.4rem">Find reference online</button>
+    </label>
+    <div class="row">
+      <label>Country / territory<input id="country" required></label>
+      <label>Currency<input id="currency" required placeholder="e.g. Euro"></label>
+      <label>Value<input id="value" required inputmode="decimal" placeholder="e.g. 20"></label>
+      <label>Year<input id="year" inputmode="numeric" maxlength="4" placeholder="e.g. 2015"></label>
+    </div>
+    <label>Folder<select id="folder"></select></label>
+    <div class="acts">
+      <button type="button" id="cancel">Cancel</button>
+      <button type="submit" class="pri">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="settings">
+  <form method="dialog" id="sform">
+    <h2>Auto-fill settings</h2>
+    <p class="help">Auto-fill uses Google's free Gemini API. Get a free key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> and paste it here. It is saved only in this browser. On Google's free tier, the photos you scan may be used to improve Google's products.</p>
+    <label>Gemini API key<input id="apiKey" type="password" autocomplete="off"></label>
+    <label>Model<input id="model" placeholder="gemini-flash-latest"></label>
+    <div class="acts"><button type="button" id="sCancel">Cancel</button><button class="pri" type="submit">Save</button></div>
+  </form>
+</dialog>
+
+<dialog id="viewer"><div class="view" id="viewBody"></div></dialog>
+
+<script>
+// ---------- Storage: IndexedDB, private to each person's browser ----------
+let db;
+const open = () => new Promise((res, rej) => {
+  const r = indexedDB.open("banknotes", 1);
+  r.onupgradeneeded = () => { r.result.createObjectStore("notes", {keyPath:"id"}); r.result.createObjectStore("folders", {keyPath:"id"}); };
+  r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+});
+const tx = (s, m, fn) => new Promise((res, rej) => { const t = db.transaction(s, m); const out = fn(t.objectStore(s)); t.oncomplete = () => res(out.result); t.onerror = () => rej(t.error); });
+const all = s => tx(s, "readonly", st => st.getAll());
+const put = (s, o) => tx(s, "readwrite", st => st.put(o));
+const del = (s, id) => tx(s, "readwrite", st => st.delete(id));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
+// ---------- State ----------
+let notes = [], folders = [], current = "all", editing = null, imgs = {};
+const $ = id => document.getElementById(id);
+
+// Shrink photos so a big collection stays small (max 1200px, JPEG)
+const shrink = file => new Promise(res => {
+  const img = new Image(), url = URL.createObjectURL(file);
+  img.onload = () => {
+    const s = Math.min(1, 1200 / Math.max(img.width, img.height));
+    const c = document.createElement("canvas"); c.width = img.width * s; c.height = img.height * s;
+    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+    URL.revokeObjectURL(url); res(c.toDataURL("image/jpeg", .85));
+  };
+  img.src = url;
+});
+
+// ---------- Render ----------
+function render() {
+  $("count").textContent = notes.length + (notes.length === 1 ? " banknote" : " banknotes");
+  const cnt = id => notes.filter(n => n.folder === id).length;
+  const chips = [["all", "All", notes.length], ["none", "Unsorted", notes.filter(n => !n.folder).length],
+    ...folders.sort((a, b) => a.name.localeCompare(b.name)).map(f => [f.id, f.name, cnt(f.id)])];
+  $("folders").innerHTML = "";
+  chips.forEach(([id, name, n]) => {
+    const b = document.createElement("button");
+    b.className = "chip"; b.setAttribute("aria-pressed", id === current);
+    b.append(name); const sp = document.createElement("span"); sp.textContent = n; b.append(sp);
+    b.onclick = () => { current = id; render(); }; $("folders").append(b);
+  });
+  if (!["all", "none"].includes(current)) {
+    const f = folders.find(f => f.id === current);
+    if (!f) { current = "all"; return render(); }
+    const r = document.createElement("button"); r.textContent = "Rename"; r.onclick = async () => {
+      const name = prompt("Folder name", f.name); if (name?.trim()) { f.name = name.trim(); await put("folders", f); render(); } };
+    const d = document.createElement("button"); d.textContent = "Delete folder"; d.className = "del"; d.onclick = async () => {
+      if (!confirm(`Delete folder "${f.name}"? Its banknotes will move to Unsorted.`)) return;
+      for (const n of notes.filter(n => n.folder === f.id)) { n.folder = null; await put("notes", n); }
+      await del("folders", f.id); folders = folders.filter(x => x.id !== f.id); current = "all"; render(); };
+    $("folders").append(r, d);
+  }
+  const q = $("q").value.toLowerCase().trim();
+  let list = notes.filter(n => current === "all" || (current === "none" ? !n.folder : n.folder === current))
+    .filter(n => !q || [n.country, n.currency, n.value, n.year].join(" ").toLowerCase().includes(q));
+  const s = $("sort").value;
+  list.sort((a, b) => s === "country" ? a.country.localeCompare(b.country) : s === "year" ? (+b.year || 0) - (+a.year || 0)
+    : s === "value" ? (parseFloat(b.value) || 0) - (parseFloat(a.value) || 0) : b.added - a.added);
+  const g = $("grid"); g.innerHTML = "";
+  if (!list.length) g.innerHTML = `<p class="empty">${notes.length ? "No banknotes match." : "Your collection is empty. Add your first banknote."}</p>`;
+  list.forEach(n => {
+    const b = document.createElement("button"); b.className = "note";
+    b.innerHTML = `<div class="imgs"><img alt="Front"><img alt="Back"></div><div class="meta"><b></b><div></div></div>`;
+    const [i1, i2] = b.querySelectorAll("img"); i1.src = n.front; i2.src = n.back;
+    b.querySelector("b").textContent = `${n.value} ${n.currency}`;
+    b.querySelector(".meta div").textContent = [n.country, n.year].filter(Boolean).join(", ");
+    b.onclick = () => showNote(n); g.append(b);
+  });
+}
+
+function showNote(n) {
+  const v = $("viewBody"), f = folders.find(f => f.id === n.folder);
+  v.innerHTML = `<h2></h2><img alt="Front"><img alt="Back"><div id="refBox"></div>
+    <dl><dt>Country / territory</dt><dd id="d1"></dd><dt>Currency</dt><dd id="d2"></dd><dt>Value</dt><dd id="d3"></dd><dt>Year</dt><dd id="d4"></dd><dt>Folder</dt><dd id="d5"></dd></dl>
+    <div class="acts"><button class="del" id="vdel">Delete</button><button id="vedit">Edit</button><button class="pri" id="vclose">Close</button></div>`;
+  v.querySelector("h2").textContent = `${n.value} ${n.currency}`;
+  const [a, b] = v.querySelectorAll("img"); a.src = n.front; b.src = n.back;
+  if (n.ref) { $("refBox").innerHTML = "<h3>Reference</h3><img alt='Reference'>"; $("refBox").querySelector("img").src = n.ref; }
+  $("d1").textContent = n.country; $("d2").textContent = n.currency; $("d3").textContent = n.value;
+  $("d4").textContent = n.year || "—"; $("d5").textContent = f ? f.name : "Unsorted";
+  $("vclose").onclick = () => $("viewer").close();
+  $("vedit").onclick = () => { $("viewer").close(); openEditor(n); };
+  $("vdel").onclick = async () => { if (!confirm("Delete this banknote?")) return;
+    await del("notes", n.id); notes = notes.filter(x => x.id !== n.id); $("viewer").close(); render(); };
+  $("viewer").showModal();
+}
+
+// ---------- Editor ----------
+function setPick(id, src, empty) {
+  const el = $(id), old = el.querySelector("img,span"); old.remove();
+  const node = src ? Object.assign(new Image(), {src, alt: ""}) : Object.assign(document.createElement("span"), {textContent: empty});
+  el.prepend(node);
+}
+function openEditor(n) {
+  editing = n; imgs = {front: n?.front, back: n?.back, ref: n?.ref && n.ref.startsWith("data:") ? n.ref : null};
+  $("editorTitle").textContent = n ? "Edit banknote" : "Add banknote";
+  setPick("pickFront", imgs.front, "Tap to take or choose a photo");
+  setPick("pickBack", imgs.back, "Tap to take or choose a photo");
+  setPick("pickRef", imgs.ref, "Choose an image of the official note");
+  $("refUrl").value = n?.ref && !n.ref.startsWith("data:") ? n.ref : "";
+  ["country", "currency", "value", "year"].forEach(k => $(k).value = n?.[k] || "");
+  $("folder").innerHTML = `<option value="">Unsorted</option>` + folders.map(f => `<option value="${f.id}">${f.name.replace(/</g, "&lt;")}</option>`).join("");
+  $("folder").value = n?.folder || (["all", "none"].includes(current) ? "" : current);
+  $("refs").innerHTML = ""; $("status").textContent = "";
+  $("editor").showModal();
+}
+[["pickFront", "front", "Tap to take or choose a photo"], ["pickBack", "back", "Tap to take or choose a photo"], ["pickRef", "ref", "Choose an image of the official note"]]
+  .forEach(([id, key, empty]) => $(id).querySelector("input").onchange = async e => {
+    const f = e.target.files[0]; if (!f) return; imgs[key] = await shrink(f); setPick(id, imgs[key], empty); });
+$("form").onsubmit = async e => {
+  if (!imgs.front || !imgs.back) { e.preventDefault(); alert("Add a photo of both the front and the back."); return; }
+  const n = {id: editing?.id || uid(), added: editing?.added || Date.now(), front: imgs.front, back: imgs.back,
+    ref: imgs.ref || $("refUrl").value.trim() || null, country: $("country").value.trim(), currency: $("currency").value.trim(),
+    value: $("value").value.trim(), year: $("year").value.trim(), folder: $("folder").value || null};
+  await put("notes", n); notes = [n, ...notes.filter(x => x.id !== n.id)]; render();
+};
+$("cancel").onclick = () => $("editor").close();
+
+// ---------- Folders, backup ----------
+$("newFolder").onclick = async () => { const name = prompt("Folder name"); if (!name?.trim()) return;
+  const f = {id: uid(), name: name.trim()}; await put("folders", f); folders.push(f); current = f.id; render(); };
+$("addNote").onclick = () => openEditor(null);
+$("q").oninput = render; $("sort").onchange = render;
+$("export").onclick = () => {
+  const blob = new Blob([JSON.stringify({notes, folders})], {type: "application/json"});
+  Object.assign(document.createElement("a"), {href: URL.createObjectURL(blob), download: "banknote-collection-backup.json"}).click();
+};
+$("importBtn").onclick = () => $("importFile").click();
+$("importFile").onchange = async e => {
+  try {
+    const d = JSON.parse(await e.target.files[0].text());
+    for (const f of d.folders) await put("folders", f);
+    for (const n of d.notes) await put("notes", n);
+    notes = await all("notes"); folders = await all("folders"); render(); alert("Backup restored.");
+  } catch { alert("That file isn't a valid backup."); }
+  e.target.value = "";
+};
+
+// ---------- Auto-fill (Gemini, free tier) + reference lookup (Wikimedia Commons, no key) ----------
+const cfg = () => ({key: localStorage.getItem("gkey") || "", model: localStorage.getItem("gmodel") || "gemini-flash-latest"});
+$("settingsBtn").onclick = () => { $("apiKey").value = cfg().key; $("model").value = localStorage.getItem("gmodel") || ""; $("settings").showModal(); };
+$("sCancel").onclick = () => $("settings").close();
+$("sform").onsubmit = () => { localStorage.setItem("gkey", $("apiKey").value.trim()); localStorage.setItem("gmodel", $("model").value.trim()); };
+
+$("scan").onclick = async () => {
+  const {key, model} = cfg(), st = $("status");
+  if (!key) { st.textContent = "Add your free Gemini key in Settings first."; return; }
+  if (!imgs.front) { st.textContent = "Add the front photo first."; return; }
+  st.textContent = "Reading the banknote…"; $("scan").disabled = true;
+  const part = d => ({inline_data: {mime_type: "image/jpeg", data: d.split(",")[1]}});
+  const prompt = `These are photos of one banknote (front${imgs.back ? " and back" : ""}). Identify it. Reply with JSON only: {"country": issuing country or territory in English, "currency": currency name in English (e.g. "Euro", "Hong Kong dollar"), "value": face value as a number string, "year": the issue or series year as a 4-digit string (empty if not visible)}. Use empty strings for anything you can't determine.`;
+  try {
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`, {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({contents: [{parts: [{text: prompt}, part(imgs.front), ...(imgs.back ? [part(imgs.back)] : [])]}],
+        generationConfig: {responseMimeType: "application/json", temperature: 0}})});
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error?.message || r.status);
+    const d = JSON.parse(j.candidates[0].content.parts.map(p => p.text || "").join("").replace(/```json|```/g, ""));
+    ["country", "currency", "value", "year"].forEach(k => { if (d[k]) $(k).value = d[k]; });
+    st.textContent = "Filled in. Please check the details before saving.";
+    findRef();
+  } catch (e) { st.textContent = "Couldn't read it: " + e.message; }
+  $("scan").disabled = false;
+};
+
+async function findRef() {
+  const q = [$("country").value, $("value").value, $("currency").value, "banknote"].join(" ").trim();
+  if (q === "banknote") { $("status").textContent = "Fill in country, value and currency first."; return; }
+  $("refs").innerHTML = "";
+  try {
+    const u = "https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrnamespace=6&gsrlimit=8&prop=imageinfo&iiprop=url&iiurlwidth=600&gsrsearch=" + encodeURIComponent(q);
+    const pages = Object.values((await (await fetch(u)).json()).query?.pages || {});
+    if (!pages.length) { $("status").textContent += " No reference found online; upload one instead."; return; }
+    pages.forEach(p => { const t = p.imageinfo?.[0]?.thumburl; if (!t) return;
+      const im = Object.assign(new Image(), {src: t, alt: p.title}); im.onclick = () => {
+        $("refUrl").value = t; imgs.ref = null; setPick("pickRef", t, ""); $("refs").querySelectorAll("img").forEach(x => x.classList.toggle("on", x === im)); };
+      $("refs").append(im); });
+    $("status").textContent += " Tap a reference image below if one matches.";
+  } catch { $("status").textContent += " Reference search failed."; }
+}
+$("findRef").onclick = findRef;
+
+(async () => { db = await open(); notes = await all("notes"); folders = await all("folders"); render();
+  navigator.storage?.persist?.(); })();
+</script>
+</body>
+</html>
