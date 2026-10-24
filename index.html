@@ -74,7 +74,7 @@ dialog p.help{color:var(--mute);font-size:.9rem;margin-top:0}
 .fcount{color:var(--mute)}
 .fhead{display:flex;justify-content:space-between;align-items:center;padding:0 clamp(1rem,4vw,2.5rem) .75rem;max-width:760px}.fhead h2{margin:0}
 .dd{position:relative}.dd>button{display:flex;align-items:center;gap:.5rem;padding:.5rem .8rem}
-.dd ul{position:absolute;z-index:5;left:0;top:calc(100% + 4px);min-width:270px;max-height:320px;overflow:auto;margin:0;padding:.3rem;list-style:none;background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(29,74,60,.18)}
+.dd ul{position:absolute;z-index:5;left:0;top:calc(100% + 4px);min-width:270px;max-height:min(13rem,50vh);overflow-y:auto;overscroll-behavior:contain;margin:0;padding:.3rem;list-style:none;background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(29,74,60,.18)}
 .dd li{display:flex;align-items:center;gap:.55rem;padding:.45rem .6rem;border-radius:6px;cursor:pointer}
 .dd li:hover,.dd li[aria-selected=true]{background:var(--bg)}.dd li small{margin-left:auto;color:var(--mute)}
 .fab{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(1.1rem + env(safe-area-inset-bottom,0px));width:68px;height:68px;border-radius:50%;padding:0;display:flex;align-items:center;justify-content:center;background:var(--acc);color:var(--accfg);border:0;box-shadow:0 0 0 3px var(--bg),0 0 0 5px var(--gold),0 8px 20px rgba(29,74,60,.25);z-index:10}
