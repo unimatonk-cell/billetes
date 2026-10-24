@@ -42,10 +42,10 @@ label{display:block;font-size:.88rem;color:var(--mute);margin-bottom:.6rem}
 label input,label select{display:block;width:100%;margin-top:.2rem;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:.5rem .6rem;color:var(--ink)}
 .pick{display:block;border:2px dashed var(--line);border-radius:10px;min-height:110px;margin-bottom:.6rem;position:relative;overflow:hidden;cursor:pointer;color:var(--mute);text-align:center}
 .pick span{display:block;padding:2.2rem .5rem}
-.pick img{width:100%;display:block;max-height:220px;object-fit:contain;background:var(--bg)}
+.pick img{width:100%;display:block;max-height:120px;object-fit:contain;background:var(--bg)}
 .pick input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;margin:0}
 .acts{display:flex;gap:.5rem;justify-content:flex-end;margin-top:.5rem;flex-wrap:wrap}
-.view img{width:100%;border-radius:8px;display:block;margin-bottom:.4rem;background:var(--bg)}
+.view img{width:100%;max-width:320px;border-radius:8px;display:block;margin:0 auto .5rem;background:var(--bg)}
 .view h3{margin:.8rem 0 .2rem;font-size:.9rem;color:var(--mute);font-weight:600}
 dl{display:grid;grid-template-columns:auto 1fr;gap:.2rem 1rem;margin:.8rem 0}dt{color:var(--mute)}dd{margin:0}
 .scan{width:100%;margin-bottom:.6rem}
@@ -68,6 +68,7 @@ dialog p.help{color:var(--mute);font-size:.9rem;margin-top:0}
 .info{flex:1;min-width:0}.info b{display:block;font-size:1.1rem}
 .info .c{display:flex;align-items:center;gap:.4rem;color:var(--mute);font-size:.9rem}
 .yr{font-weight:600;color:var(--mute)}
+.flag.none{visibility:hidden}
 .flag{width:24px;height:18px;object-fit:cover;border-radius:2px;flex:none;display:inline-block;text-align:center;line-height:18px}
 .ficon{width:34px;height:26px;border-radius:3px 9px 4px 4px;background:var(--acc);flex:none;margin:0 .4rem}
 .fcount{color:var(--mute)}
@@ -156,9 +157,18 @@ const del = (s, id) => tx(s, "readwrite", st => st.delete(id));
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
 // ---------- State ----------
-let notes = [], folders = [], current = null, view = "collection", country = "", scanIso = "", editing = null, imgs = {};
+let notes = [], folders = [], current = null, view = "collection", country = "", scanIso = "", refPage = "", editing = null, imgs = {};
 const $ = id => document.getElementById(id);
 
+// Turn portrait photos sideways so every banknote image is horizontal
+const landscape = src => new Promise(res => {
+  if (!src || !src.startsWith("data:")) return res(src);
+  const i = new Image(); i.onerror = () => res(src);
+  i.onload = () => { if (i.width >= i.height) return res(src);
+    const c = document.createElement("canvas"); c.width = i.height; c.height = i.width;
+    const x = c.getContext("2d"); x.translate(c.width, 0); x.rotate(Math.PI / 2); x.drawImage(i, 0, 0);
+    res(c.toDataURL("image/jpeg", .85)); };
+  i.src = src; });
 // Shrink photos so a big collection stays small (max 1200px, JPEG)
 const shrink = file => new Promise(res => {
   const img = new Image(), url = URL.createObjectURL(file);
@@ -166,42 +176,82 @@ const shrink = file => new Promise(res => {
     const s = Math.min(1, 1200 / Math.max(img.width, img.height));
     const c = document.createElement("canvas"); c.width = img.width * s; c.height = img.height * s;
     c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
-    URL.revokeObjectURL(url); res(c.toDataURL("image/jpeg", .85));
+    URL.revokeObjectURL(url); res(landscape(c.toDataURL("image/jpeg", .85)));
   };
   img.src = url;
 });
 
 // ---------- Countries and flags ----------
+// Names to compare: lowercase, no accents or punctuation, "&" = "and", no "the"
+const norm = s => (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/&/g, " and ").replace(/\bsar china\b/g, "")
+  .replace(/[^a-z0-9]+/g, " ").replace(/\bthe\b/g, " ").replace(/\s+/g, " ").trim();
+// Retired ISO codes (flag sites don't have them)
+const DEPR = new Set(["YU", "SU", "CS", "DD", "ZR", "TP", "BU", "VD", "YD", "NH", "HV", "RH", "AN", "CT", "FQ", "JT", "MI", "NQ", "PC", "PU", "PZ", "WK", "DY", "FX"]);
+// Historical states and unrecognised territories: no ISO code, flag is looked up on Wikimedia Commons by this name
+const FLAGNAME = {"ussr": "the Soviet Union", "u s s r": "the Soviet Union", "soviet union": "the Soviet Union", "soviet": "the Soviet Union",
+  "yugoslavia": "Yugoslavia", "sfr yugoslavia": "Yugoslavia", "kingdom of yugoslavia": "Yugoslavia", "czechoslovakia": "Czechoslovakia",
+  "east germany": "East Germany", "german democratic republic": "East Germany", "gdr": "East Germany", "west germany": "Germany",
+  "abkhazia": "Abkhazia", "south ossetia": "South Ossetia", "transnistria": "Transnistria", "pridnestrovian moldavian republic": "Transnistria",
+  "northern cyprus": "the Turkish Republic of Northern Cyprus", "turkish republic of northern cyprus": "the Turkish Republic of Northern Cyprus",
+  "somaliland": "Somaliland", "artsakh": "Artsakh", "nagorno karabakh": "Artsakh", "biafra": "Biafra", "katanga": "Katanga",
+  "rhodesia": "Rhodesia", "south vietnam": "South Vietnam", "north yemen": "North Yemen", "south yemen": "South Yemen", "zaire": "Zaire"};
 const NAMES = [], REG = (() => { const dn = new Intl.DisplayNames("en", {type: "region"}), m = {};
   for (let a = 65; a < 91; a++) for (let b = 65; b < 91; b++) { const c = String.fromCharCode(a, b);
-    try { const n = dn.of(c); if (n && n !== c) { m[n.toLowerCase()] = c; NAMES.push(n); } } catch {} }
-  Object.assign(m, {"usa": "US", "united states of america": "US", "uk": "GB", "great britain": "GB", "england": "GB", "scotland": "GB", "russia": "RU", "south korea": "KR", "north korea": "KP",
-    "czech republic": "CZ", "ivory coast": "CI", "burma": "MM", "macau": "MO", "macao": "MO", "hong kong": "HK", "vietnam": "VN", "turkey": "TR", "swaziland": "SZ", "east timor": "TL", "palestine": "PS"});
-  return m; })();
+    try { const n = dn.of(c); if (n && n !== c && !DEPR.has(c)) { m[norm(n)] = c; NAMES.push(n); } } catch {} }
+  const al = {"usa": "US", "united states of america": "US", "america": "US", "uk": "GB", "great britain": "GB", "britain": "GB", "russia": "RU", "russian federation": "RU",
+    "south korea": "KR", "republic of korea": "KR", "korea south": "KR", "north korea": "KP", "czech republic": "CZ", "ivory coast": "CI", "cote d ivoire": "CI",
+    "burma": "MM", "myanmar": "MM", "macau": "MO", "macao": "MO", "hong kong": "HK", "vietnam": "VN", "turkey": "TR", "turkiye": "TR", "swaziland": "SZ", "eswatini": "SZ",
+    "east timor": "TL", "timor leste": "TL", "palestine": "PS", "holland": "NL", "cape verde": "CV", "cabo verde": "CV", "vatican": "VA", "holy see": "VA",
+    "dr congo": "CD", "drc": "CD", "democratic republic of congo": "CD", "democratic republic of the congo": "CD", "congo kinshasa": "CD",
+    "republic of congo": "CG", "republic of the congo": "CG", "congo brazzaville": "CG", "macedonia": "MK", "laos": "LA", "syria": "SY", "iran": "IR",
+    "scotland": "GB-SCT", "england": "GB-ENG", "wales": "GB-WLS", "northern ireland": "GB-NIR", "kosovo": "XK", "czechia": "CZ", "gambia": "GM", "the gambia": "GM"};
+  Object.entries(al).forEach(([k, v]) => m[norm(k)] = v); return m; })();
+NAMES.push("Soviet Union", "Yugoslavia", "Czechoslovakia", "East Germany", "Abkhazia", "South Ossetia", "Transnistria", "Northern Cyprus", "Somaliland", "Scotland", "England", "Wales", "Northern Ireland");
 $("countries").innerHTML = NAMES.sort().map(n => `<option value="${n}">`).join("");
-const isoOf = n => /^[A-Za-z]{2}$/.test(n.iso || "") ? n.iso.toUpperCase() : REG[(n.country || "").toLowerCase().replace(/\s+sar china$/, "").trim()] || "";
-const countryKey = n => isoOf(n) || (n.country || "").toLowerCase();
+const isoOf = n => { if (FLAGNAME[norm(n.country)]) return "";
+  let c = (n.iso || "").toUpperCase(); if (c === "UK") c = "GB";
+  return /^[A-Z]{2}(-[A-Z]{2,3})?$/.test(c) && !DEPR.has(c) ? c : REG[norm(n.country)] || ""; };
+const countryKey = n => isoOf(n) || norm(FLAGNAME[norm(n.country)] || n.country);
 const el = (t, txt, cls) => { const e = document.createElement(t); if (txt != null) e.textContent = txt; if (cls) e.className = cls; return e; };
-const flagEl = iso => { if (!iso) return el("span", null, "flag"); const i = el("img", null, "flag"); i.alt = ""; i.width = 24; i.height = 18;
-  i.src = `https://flagcdn.com/w40/${iso.toLowerCase()}.png`;
-  i.onerror = () => i.replaceWith(el("span", String.fromCodePoint(...[...iso.toUpperCase()].map(c => 127397 + c.charCodeAt(0))), "flag")); return i; };
+// Flags: flagcdn.com for countries with an ISO code, otherwise the best matching "Flag of …" file on Wikimedia Commons (year picks the right era)
+const flagCache = (() => { try { return JSON.parse(localStorage.getItem("flagc")) || {}; } catch { return {}; } })(), pend = {};
+function commonsFlag(name, year) {
+  const nm = FLAGNAME[norm(name)] || name, k = norm(nm) + "|" + (year || "");
+  if (k in flagCache) return Promise.resolve(flagCache[k]);
+  return pend[k] || (pend[k] = fetch("https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrnamespace=6&gsrlimit=20&prop=imageinfo&iiprop=url&iiurlwidth=48&gsrsearch=" + encodeURIComponent("Flag of " + nm))
+    .then(r => r.json()).then(j => {
+      const y = +year || 0, want = "flag of " + norm(nm);
+      const best = Object.values(j.query?.pages || {}).filter(p => /\.svg$/i.test(p.title) && norm(p.title.replace(/^File:/, "").replace(/\.svg$/i, "")).startsWith(want) && p.imageinfo?.[0]?.thumburl)
+        .map(p => { const m = p.title.match(/(\d{4})\s*[–-]\s*(\d{4})?/); let sc = -p.title.length / 100;
+          if (m && y) { const a = +m[1], b = +m[2] || 9999; sc += y >= a && y <= b ? 3 : -3; } return [sc, p.imageinfo[0].thumburl]; }).sort((a, b) => b[0] - a[0])[0];
+      flagCache[k] = best ? best[1] : ""; try { localStorage.setItem("flagc", JSON.stringify(flagCache)); } catch {} return flagCache[k];
+    }).catch(() => ""));
+}
+const flagEl = (iso, name, year) => {
+  if (!iso && !name) return el("span", null, "flag");
+  const i = el("img", null, "flag"); i.alt = ""; i.width = 24; i.height = 18;
+  const viaCommons = () => name ? commonsFlag(name, year).then(u => { if (u) i.src = u; else i.classList.add("none"); }) : i.classList.add("none");
+  if (iso) { i.src = `https://flagcdn.com/w40/${iso.toLowerCase()}.png`; i.onerror = () => { i.onerror = () => i.classList.add("none"); viaCommons(); }; }
+  else viaCommons();
+  return i;
+};
 
 // ---------- Render ----------
 function row(n) {
   const b = el("button", null, "item"), img = el("img", null, "thumb"); img.alt = "";
   img.src = n.ref || n.front; img.onerror = () => { img.onerror = null; img.src = n.front; };
-  const info = el("div", null, "info"), c = el("span", null, "c"); c.append(flagEl(isoOf(n)), n.country);
+  const info = el("div", null, "info"), c = el("span", null, "c"); c.append(flagEl(isoOf(n), n.country, n.year), n.country);
   info.append(el("b", `${n.value} ${n.currency}`), c);
   b.append(img, info, el("span", n.year || "", "yr")); b.onclick = () => showNote(n); return b;
 }
 function fillDropdown(by, total) {
   const btn = $("ddBtn"), ul = $("ddList"); ul.innerHTML = ""; btn.innerHTML = "";
-  const add = (key, name, iso, c) => { const li = el("li"); li.setAttribute("role", "option"); li.setAttribute("aria-selected", key === country);
-    li.append(flagEl(iso), el("span", name), el("small", c));
+  const add = (key, name, iso, c, y) => { const li = el("li"); li.setAttribute("role", "option"); li.setAttribute("aria-selected", key === country);
+    li.append(flagEl(iso, key && name, y), el("span", name), el("small", c));
     li.onclick = () => { country = key; ul.hidden = true; btn.setAttribute("aria-expanded", false); render(); };
-    ul.append(li); if (key === country) btn.append(flagEl(iso), el("span", name)); };
+    ul.append(li); if (key === country) btn.append(flagEl(iso, key && name, y), el("span", name)); };
   add("", "All countries/territories", "", total);
-  Object.entries(by).sort((a, b) => a[1].n.localeCompare(b[1].n)).forEach(([k, v]) => add(k, v.n, v.iso, v.c));
+  Object.entries(by).sort((a, b) => a[1].n.localeCompare(b[1].n)).forEach(([k, v]) => add(k, v.n, v.iso, v.c, v.y));
 }
 function render() {
   const fv = view === "folders", inF = view === "folder", keys = new Set(notes.map(countryKey)), k = keys.size;
@@ -233,7 +283,7 @@ function render() {
       sub.append(rn, dl);
     }
   }
-  const by = {}; pool.forEach(n => { const key = countryKey(n); (by[key] = by[key] || {n: n.country, iso: isoOf(n), c: 0}).c++; });
+  const by = {}; pool.forEach(n => { const key = countryKey(n); (by[key] = by[key] || {n: n.country, iso: isoOf(n), y: n.year, c: 0}).c++; });
   if (country && !by[country]) country = "";
   fillDropdown(by, pool.length);
   const q = $("q").value.toLowerCase().trim();
@@ -255,7 +305,9 @@ function showNote(n) {
     <div class="acts"><button class="del" id="vdel">Delete</button><button id="vedit">Edit</button><button class="pri" id="vclose">Close</button></div>`;
   v.querySelector("h2").textContent = `${n.value} ${n.currency}`;
   const [a, b] = v.querySelectorAll("img"); a.src = n.front; b.src = n.back;
-  if (n.ref) { $("refBox").innerHTML = "<h3>Reference</h3><img alt='Reference'>"; $("refBox").querySelector("img").src = n.ref; }
+  landscape(n.front).then(d => a.src = d); landscape(n.back).then(d => b.src = d);
+  if (n.ref) { $("refBox").innerHTML = "<h3>Reference</h3><img alt='Reference'>"; $("refBox").querySelector("img").src = n.ref;
+    if (/^https:\/\/(en\.)?numista\.com\//.test(n.refPage || "")) { const a = el("a", "View on Numista"); a.href = n.refPage; a.target = "_blank"; a.rel = "noopener"; $("refBox").append(a); } }
   $("d1").textContent = n.country; $("d2").textContent = n.currency; $("d3").textContent = n.value;
   $("d4").textContent = n.year || "—"; $("d5").textContent = f ? f.name : "Unsorted";
   $("vclose").onclick = () => $("viewer").close();
@@ -277,11 +329,12 @@ function openEditor(n) {
   setPick("pickFront", imgs.front, "Tap to take or choose a photo");
   setPick("pickBack", imgs.back, "Tap to take or choose a photo");
   setPick("pickRef", imgs.ref, "Choose an image of the official note");
+  if (n) ["front", "back"].forEach(k => landscape(imgs[k]).then(d => { if (editing === n && d !== imgs[k]) { imgs[k] = d; setPick(k === "front" ? "pickFront" : "pickBack", d, ""); } }));
   $("refUrl").value = n?.ref && !n.ref.startsWith("data:") ? n.ref : "";
   ["country", "currency", "value", "year"].forEach(k => $(k).value = n?.[k] || "");
   $("folder").innerHTML = `<option value="">Unsorted</option>` + folders.map(f => `<option value="${f.id}">${f.name.replace(/</g, "&lt;")}</option>`).join("");
   $("folder").value = n?.folder || (view === "folder" && current !== "none" ? current : "");
-  $("refs").innerHTML = ""; $("status").textContent = ""; scanIso = "";
+  $("refs").innerHTML = ""; $("status").textContent = ""; scanIso = ""; refPage = "";
   $("editor").showModal();
 }
 [["pickFront", "front", "Tap to take or choose a photo"], ["pickBack", "back", "Tap to take or choose a photo"], ["pickRef", "ref", "Choose an image of the official note"]]
@@ -292,6 +345,7 @@ $("form").onsubmit = async e => {
   const n = {id: editing?.id || uid(), added: editing?.added || Date.now(), front: imgs.front, back: imgs.back,
     ref: imgs.ref || $("refUrl").value.trim() || null, country: $("country").value.trim(), currency: $("currency").value.trim(),
     value: $("value").value.trim(), year: $("year").value.trim(), folder: $("folder").value || null,
+    refPage: refPage || (editing && editing.ref && editing.ref === ($("refUrl").value.trim() || null) ? editing.refPage : "") || "",
     iso: scanIso || (editing && editing.country === $("country").value.trim() ? editing.iso : "") || ""};
   await put("notes", n); notes = [n, ...notes.filter(x => x.id !== n.id)]; render();
 };
@@ -329,7 +383,7 @@ $("scan").onclick = async () => {
   if (!imgs.front) { st.textContent = "Add the front photo first."; return; }
   st.textContent = "Reading the banknote…"; $("scan").disabled = true;
   const part = d => ({inline_data: {mime_type: "image/jpeg", data: d.split(",")[1]}});
-  const prompt = `These are photos of one banknote (front${imgs.back ? " and back" : ""}). Identify it. Reply with JSON only: {"country": issuing country or territory in English, "iso": its ISO 3166-1 alpha-2 code (e.g. "DE", "HK"), "currency": currency name in English (e.g. "Euro", "Hong Kong dollar"), "value": face value as a number string, "year": the issue or series year as a 4-digit string (empty if not visible)}. Use empty strings for anything you can't determine.`;
+  const prompt = `These are photos of one banknote (front${imgs.back ? " and back" : ""}). Identify it. Reply with JSON only: {"country": the issuing country or territory in English, using the common name of the state as it was when the note was issued (e.g. "Soviet Union", "Yugoslavia", "East Germany"), "iso": its ISO 3166-1 alpha-2 code (e.g. "DE", "HK"), or "" for historical states and unrecognised or breakaway territories that have no code of their own (e.g. USSR, Yugoslavia, Abkhazia, Transnistria); never use a neighbouring country's code, "currency": currency name in English (e.g. "Euro", "Hong Kong dollar"), "value": face value as a number string, "year": the issue or series year as a 4-digit string (empty if not visible)}. Use empty strings for anything you can't determine.`;
   try {
     const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`, {
       method: "POST", headers: {"Content-Type": "application/json"},
@@ -345,7 +399,37 @@ $("scan").onclick = async () => {
   $("scan").disabled = false;
 };
 
+// Gemini searches Numista itself (Google Search + page reading), using the scanned details and your photo
+async function numistaAI() {
+  const {key, model} = cfg(), c = $("country").value.trim(), v = $("value").value.trim(), cu = $("currency").value.trim(), y = $("year").value.trim();
+  if (!c || !v || !imgs.front) return false;
+  $("status").textContent += " Searching Numista…";
+  const prompt = `Find this banknote in the Numista catalogue (numista.com): ${c}, ${v} ${cu}${y ? ", year " + y : ""}. The attached photo is the actual note, so use it to pick the matching design and series. Search numista.com, open the catalogue page for that exact banknote type (page addresses look like https://en.numista.com/12345), and read the address of its front (obverse) image, a file under https://en.numista.com/catalogue/photos/. Reply with exactly two lines and nothing else:\nPAGE: <catalogue page address>\nFRONT: <front image address>\nIf you cannot find it, reply NONE. Never guess an address.`;
+  const call = tools => fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`, {
+    method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({contents: [{parts: [{text: prompt}, {inline_data: {mime_type: "image/jpeg", data: imgs.front.split(",")[1]}}]}], tools, generationConfig: {temperature: 0}})});
+  let r = await call([{google_search: {}}, {url_context: {}}]);
+  if (!r.ok) r = await call([{google_search: {}}]);
+  const j = await r.json(); if (!r.ok) throw new Error(j.error?.message || r.status);
+  const text = (j.candidates?.[0]?.content?.parts || []).map(p => p.text || "").join("");
+  const page = text.match(/PAGE:\s*(https:\/\/(?:en\.)?numista\.com\/\d+)/i)?.[1];
+  const front = text.match(/FRONT:\s*(https:\/\/en\.numista\.com\/catalogue\/photos\/[^\s<>"')]+?\.(?:jpe?g|png|webp))/i)?.[1];
+  if (!page || !front) return false;
+  // Only accept the address if the image really loads (guards against made-up links)
+  if (!await new Promise(res => { const i = new Image(); i.onload = () => res(true); i.onerror = () => res(false); i.src = front; })) return false;
+  refPage = page; imgs.ref = null; $("refUrl").value = front; setPick("pickRef", front, ""); $("refs").innerHTML = "";
+  $("status").textContent = "Front reference found on Numista.";
+  return true;
+}
 async function findRef() {
+  const st = $("status");
+  if (cfg().key) {
+    try { if (await numistaAI()) return; st.textContent += " Not found on Numista, trying Wikimedia."; }
+    catch (e) { st.textContent += ` Numista search failed (${e.message}), trying Wikimedia.`; }
+  }
+  return findRefCommons();
+}
+async function findRefCommons() {
   const base = [$("country").value, $("value").value, $("currency").value, "banknote"].join(" ").trim();
   if (base === "banknote") { $("status").textContent = "Fill in country, value and currency first."; return; }
   $("refs").innerHTML = "";
@@ -361,7 +445,7 @@ async function findRef() {
     if (!pages.length) { $("status").textContent += " No reference found online; upload one instead."; return; }
     const ims = pages.map(p => { const t = p.imageinfo[0].thumburl, im = Object.assign(new Image(), {src: t, alt: p.title});
       im.onclick = () => choose(t, im); $("refs").append(im); return [t, im]; });
-    const choose = (t, im) => { $("refUrl").value = t; imgs.ref = null; setPick("pickRef", t, ""); $("refs").querySelectorAll("img").forEach(x => x.classList.toggle("on", x === im)); };
+    const choose = (t, im) => { refPage = ""; $("refUrl").value = t; imgs.ref = null; setPick("pickRef", t, ""); $("refs").querySelectorAll("img").forEach(x => x.classList.toggle("on", x === im)); };
     choose(...ims[0]);
     $("status").textContent += " Front reference picked. Tap another image to change it.";
   } catch { $("status").textContent += " Reference search failed."; }
