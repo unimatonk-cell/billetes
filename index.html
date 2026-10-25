@@ -334,7 +334,7 @@ function openEditor(n) {
   ["country", "currency", "value", "year"].forEach(k => $(k).value = n?.[k] || "");
   $("folder").innerHTML = `<option value="">Unsorted</option>` + folders.map(f => `<option value="${f.id}">${f.name.replace(/</g, "&lt;")}</option>`).join("");
   $("folder").value = n?.folder || (view === "folder" && current !== "none" ? current : "");
-  $("refs").innerHTML = ""; $("status").textContent = ""; scanIso = ""; refPage = "";
+  $("refs").innerHTML = ""; $("status").textContent = ""; scanIso = ""; refPage = ""; sess++;
   $("editor").showModal();
 }
 [["pickFront", "front", "Tap to take or choose a photo"], ["pickBack", "back", "Tap to take or choose a photo"], ["pickRef", "ref", "Choose an image of the official note"]]
@@ -347,7 +347,8 @@ $("form").onsubmit = async e => {
     value: $("value").value.trim(), year: $("year").value.trim(), folder: $("folder").value || null,
     refPage: refPage || (editing && editing.ref && editing.ref === ($("refUrl").value.trim() || null) ? editing.refPage : "") || "",
     iso: scanIso || (editing && editing.country === $("country").value.trim() ? editing.iso : "") || ""};
-  await put("notes", n); notes = [n, ...notes.filter(x => x.id !== n.id)]; render();
+  await put("notes", n); notes = [n, ...notes.filter(x => x.id !== n.id)]; if (pending[sess]) saved[sess] = n;
+  render();
 };
 $("cancel").onclick = () => $("editor").close();
 
@@ -377,80 +378,109 @@ $("settingsBtn").onclick = () => { $("apiKey").value = cfg().key; $("model").val
 $("sCancel").onclick = () => $("settings").close();
 $("sform").onsubmit = () => { localStorage.setItem("gkey", $("apiKey").value.trim()); localStorage.setItem("gmodel", $("model").value.trim()); };
 
+// ---------- Gemini helper: retries when Google is busy, then falls back to lighter models ----------
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+async function gemini(parts, tools, note) {
+  const {key, model} = cfg(), models = [...new Set([model, "gemini-flash-latest", "gemini-flash-lite-latest"])];
+  let last = "";
+  for (const m of models) for (let a = 0; a < 3; a++) {
+    try {
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(m)}:generateContent?key=${encodeURIComponent(key)}`, {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({contents: [{parts}], ...(tools ? {tools} : {}), generationConfig: {temperature: 0, ...(tools ? {} : {responseMimeType: "application/json"})}})});
+      const j = await r.json().catch(() => ({}));
+      if (r.ok) return (j.candidates?.[0]?.content?.parts || []).map(p => p.text || "").join("");
+      last = j.error?.message || r.status;
+      if (r.status === 404) break;
+      if (![429, 500, 502, 503, 504].includes(r.status)) throw new Error(last);
+    } catch (e) { if (!(e instanceof TypeError)) throw e; last = "network problem"; }
+    note?.(m === models[models.length - 1] && a === 2 ? "Still busy…" : "Google is busy, retrying…");
+    await sleep(1500 * (a + 1));
+  }
+  throw new Error(`Google is overloaded right now (${last}). Try again in a minute.`);
+}
+// Smaller copies of the photos make the AI calls faster
+const small = (d, px) => new Promise(res => { const i = new Image(); i.onerror = () => res(d);
+  i.onload = () => { const s = Math.min(1, px / Math.max(i.width, i.height)), c = document.createElement("canvas"); c.width = i.width * s; c.height = i.height * s;
+    c.getContext("2d").drawImage(i, 0, 0, c.width, c.height); res(c.toDataURL("image/jpeg", .75)); }; i.src = d; });
+const inl = d => ({inline_data: {mime_type: "image/jpeg", data: d.split(",")[1]}});
+
+// ---------- Step 1: read the banknote (you can save as soon as this is done) ----------
+let sess = 0; const pending = {}, saved = {};
 $("scan").onclick = async () => {
-  const {key, model} = cfg(), st = $("status");
+  const {key} = cfg(), st = $("status"), my = sess;
   if (!key) { st.textContent = "Add your free Gemini key in Settings first."; return; }
   if (!imgs.front) { st.textContent = "Add the front photo first."; return; }
   st.textContent = "Reading the banknote…"; $("scan").disabled = true;
-  const part = d => ({inline_data: {mime_type: "image/jpeg", data: d.split(",")[1]}});
   const prompt = `These are photos of one banknote (front${imgs.back ? " and back" : ""}). Identify it. Reply with JSON only: {"country": the issuing country or territory in English, using the common name of the state as it was when the note was issued (e.g. "Soviet Union", "Yugoslavia", "East Germany"), "iso": its ISO 3166-1 alpha-2 code (e.g. "DE", "HK"), or "" for historical states and unrecognised or breakaway territories that have no code of their own (e.g. USSR, Yugoslavia, Abkhazia, Transnistria); never use a neighbouring country's code, "currency": currency name in English (e.g. "Euro", "Hong Kong dollar"), "value": face value as a number string, "year": the issue or series year as a 4-digit string (empty if not visible)}. Use empty strings for anything you can't determine.`;
   try {
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`, {
-      method: "POST", headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({contents: [{parts: [{text: prompt}, part(imgs.front), ...(imgs.back ? [part(imgs.back)] : [])]}],
-        generationConfig: {responseMimeType: "application/json", temperature: 0}})});
-    const j = await r.json();
-    if (!r.ok) throw new Error(j.error?.message || r.status);
-    const d = JSON.parse(j.candidates[0].content.parts.map(p => p.text || "").join("").replace(/```json|```/g, ""));
+    const parts = [{text: prompt}, inl(await small(imgs.front, 1000))];
+    if (imgs.back) parts.push(inl(await small(imgs.back, 1000)));
+    const d = JSON.parse((await gemini(parts, null, m => { if (my === sess) st.textContent = m; })).replace(/```json|```/g, ""));
+    if (my !== sess) return;
     ["country", "currency", "value", "year"].forEach(k => { if (d[k]) $(k).value = d[k]; }); scanIso = (d.iso || "").toUpperCase();
-    st.textContent = "Filled in. Please check the details before saving.";
-    findRef();
-  } catch (e) { st.textContent = "Couldn't read it: " + e.message; }
-  $("scan").disabled = false;
+    st.textContent = "Filled in. Check the details, you can save now. Looking for a reference image…";
+    startRef(false);
+  } catch (e) { if (my === sess) st.textContent = "Couldn't read it: " + e.message; }
+  finally { $("scan").disabled = false; }
 };
 
-// Gemini searches Numista itself (Google Search + page reading), using the scanned details and your photo
-async function numistaAI() {
-  const {key, model} = cfg(), c = $("country").value.trim(), v = $("value").value.trim(), cu = $("currency").value.trim(), y = $("year").value.trim();
-  if (!c || !v || !imgs.front) return false;
-  $("status").textContent += " Searching Numista…";
-  const prompt = `Find this banknote in the Numista catalogue (numista.com): ${c}, ${v} ${cu}${y ? ", year " + y : ""}. The attached photo is the actual note, so use it to pick the matching design and series. Search numista.com, open the catalogue page for that exact banknote type (page addresses look like https://en.numista.com/12345), and read the address of its front (obverse) image, a file under https://en.numista.com/catalogue/photos/. Reply with exactly two lines and nothing else:\nPAGE: <catalogue page address>\nFRONT: <front image address>\nIf you cannot find it, reply NONE. Never guess an address.`;
-  const call = tools => fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`, {
-    method: "POST", headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({contents: [{parts: [{text: prompt}, {inline_data: {mime_type: "image/jpeg", data: imgs.front.split(",")[1]}}]}], tools, generationConfig: {temperature: 0}})});
-  let r = await call([{google_search: {}}, {url_context: {}}]);
-  if (!r.ok) r = await call([{google_search: {}}]);
-  const j = await r.json(); if (!r.ok) throw new Error(j.error?.message || r.status);
-  const text = (j.candidates?.[0]?.content?.parts || []).map(p => p.text || "").join("");
+// ---------- Step 2: reference image, searched in the background ----------
+async function numistaAI(info, note) {
+  const prompt = `Find this banknote in the Numista catalogue (numista.com): ${info.c}, ${info.v} ${info.cu}${info.y ? ", year " + info.y : ""}. The attached photo is the actual note, so use it to pick the matching design and series. Search numista.com, open the catalogue page for that exact banknote type (page addresses look like https://en.numista.com/12345), and read the address of its front (obverse) image, a file under https://en.numista.com/catalogue/photos/. Reply with exactly two lines and nothing else:\nPAGE: <catalogue page address>\nFRONT: <front image address>\nIf you cannot find it, reply NONE. Never guess an address.`;
+  const parts = [{text: prompt}, inl(await small(info.front, 640))];
+  let text;
+  try { text = await gemini(parts, [{google_search: {}}, {url_context: {}}], note); }
+  catch (e) { if (/overloaded/.test(e.message)) throw e; text = await gemini(parts, [{google_search: {}}], note); }
   const page = text.match(/PAGE:\s*(https:\/\/(?:en\.)?numista\.com\/\d+)/i)?.[1];
   const front = text.match(/FRONT:\s*(https:\/\/en\.numista\.com\/catalogue\/photos\/[^\s<>"')]+?\.(?:jpe?g|png|webp))/i)?.[1];
-  if (!page || !front) return false;
+  if (!page || !front) return null;
   // Only accept the address if the image really loads (guards against made-up links)
-  if (!await new Promise(res => { const i = new Image(); i.onload = () => res(true); i.onerror = () => res(false); i.src = front; })) return false;
-  refPage = page; imgs.ref = null; $("refUrl").value = front; setPick("pickRef", front, ""); $("refs").innerHTML = "";
-  $("status").textContent = "Front reference found on Numista.";
-  return true;
+  if (!await new Promise(res => { const i = new Image(); i.onload = () => res(true); i.onerror = () => res(false); i.src = front; })) return null;
+  return {url: front, page, cands: [], msg: "Front reference found on Numista."};
 }
-async function findRef() {
-  const st = $("status");
-  if (cfg().key) {
-    try { if (await numistaAI()) return; st.textContent += " Not found on Numista, trying Wikimedia."; }
-    catch (e) { st.textContent += ` Numista search failed (${e.message}), trying Wikimedia.`; }
-  }
-  return findRefCommons();
-}
-async function findRefCommons() {
-  const base = [$("country").value, $("value").value, $("currency").value, "banknote"].join(" ").trim();
-  if (base === "banknote") { $("status").textContent = "Fill in country, value and currency first."; return; }
-  $("refs").innerHTML = "";
+async function commonsRef(info) {
+  const base = [info.c, info.v, info.cu, "banknote"].join(" ").trim();
+  if (base === "banknote") return null;
   const api = q => fetch("https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrnamespace=6&gsrlimit=10&prop=imageinfo&iiprop=url&iiurlwidth=600&gsrsearch=" + encodeURIComponent(q))
     .then(r => r.json()).then(j => Object.values(j.query?.pages || {})).catch(() => []);
-  try {
-    const [a, b] = await Promise.all([api(base + " obverse"), api(base)]), seen = new Set(), pages = [];
-    [...a, ...b].forEach(p => { if (!seen.has(p.pageid) && p.imageinfo?.[0]?.thumburl) { seen.add(p.pageid); pages.push(p); } });
-    const v = $("value").value.toLowerCase();
-    const score = p => { const t = p.title.toLowerCase();
-      return (/obverse|front|recto|avers|anverso|vorder/.test(t) ? 3 : 0) - (/reverse|back|verso|rear|revers|rück|ruck/.test(t) ? 4 : 0) + (v && t.includes(v) ? 1 : 0) + (/\.(jpe?g|png|webp)$/.test(t) ? 1 : -5); };
-    pages.sort((x, y) => score(y) - score(x));
-    if (!pages.length) { $("status").textContent += " No reference found online; upload one instead."; return; }
-    const ims = pages.map(p => { const t = p.imageinfo[0].thumburl, im = Object.assign(new Image(), {src: t, alt: p.title});
-      im.onclick = () => choose(t, im); $("refs").append(im); return [t, im]; });
-    const choose = (t, im) => { refPage = ""; $("refUrl").value = t; imgs.ref = null; setPick("pickRef", t, ""); $("refs").querySelectorAll("img").forEach(x => x.classList.toggle("on", x === im)); };
-    choose(...ims[0]);
-    $("status").textContent += " Front reference picked. Tap another image to change it.";
-  } catch { $("status").textContent += " Reference search failed."; }
+  const [a, b] = await Promise.all([api(base + " obverse"), api(base)]), seen = new Set(), pages = [], v = (info.v || "").toLowerCase();
+  [...a, ...b].forEach(p => { if (!seen.has(p.pageid) && p.imageinfo?.[0]?.thumburl) { seen.add(p.pageid); pages.push(p); } });
+  const score = p => { const t = p.title.toLowerCase();
+    return (/obverse|front|recto|avers|anverso|vorder/.test(t) ? 3 : 0) - (/reverse|back|verso|rear|revers|rück|ruck/.test(t) ? 4 : 0) + (v && t.includes(v) ? 1 : 0) + (/\.(jpe?g|png|webp)$/.test(t) ? 1 : -5); };
+  pages.sort((x, y) => score(y) - score(x));
+  if (!pages.length) return null;
+  const urls = pages.map(p => p.imageinfo[0].thumburl);
+  return {url: urls[0], page: "", cands: urls, msg: "Front reference picked from Wikimedia. Tap another image to change it."};
 }
-$("findRef").onclick = findRef;
+async function lookupRef(info, note) {
+  if (cfg().key && info.c && info.v && info.front) {
+    try { const r = await numistaAI(info, note); if (r) return r; note?.("Not on Numista, trying Wikimedia…"); }
+    catch (e) { note?.("Numista search failed, trying Wikimedia…"); }
+  }
+  return commonsRef(info);
+}
+function applyRef(res, force) {
+  if (!force && (imgs.ref || $("refUrl").value.trim())) return;
+  const pick = (u, im) => { refPage = ""; $("refUrl").value = u; imgs.ref = null; setPick("pickRef", u, "");
+    $("refs").querySelectorAll("img").forEach(x => x.classList.toggle("on", x === im)); };
+  $("refs").innerHTML = ""; refPage = res.page || ""; $("refUrl").value = res.url; imgs.ref = null; setPick("pickRef", res.url, "");
+  res.cands.forEach((u, k) => { const im = Object.assign(new Image(), {src: u}); if (k === 0) im.classList.add("on"); im.onclick = () => pick(u, im); $("refs").append(im); });
+  $("status").textContent = res.msg;
+}
+function startRef(force) {
+  const my = sess, st = $("status"), info = {c: $("country").value.trim(), v: $("value").value.trim(), cu: $("currency").value.trim(), y: $("year").value.trim(), front: imgs.front};
+  const say = m => { if (my === sess && !saved[my]) st.textContent = m; };
+  if (!info.c && !info.v) { say("Fill in country, value and currency first."); return; }
+  if (force) say("Searching for a reference image…");
+  pending[my] = true;
+  lookupRef(info, say).then(async res => {
+    if (!res) { say("No reference image found. You can upload one, or tap “Find reference online” to retry."); return; }
+    if (saved[my]) { const n = saved[my]; if (!n.ref) { n.ref = res.url; n.refPage = res.page || ""; await put("notes", n); render(); } }
+    else if (my === sess) applyRef(res, force);
+  }).catch(e => say("Reference search failed: " + e.message)).finally(() => { delete pending[my]; });
+}
+$("findRef").onclick = () => startRef(true);
 
 (async () => { db = await open(); notes = await all("notes"); folders = await all("folders"); render();
   navigator.storage?.persist?.(); })();
